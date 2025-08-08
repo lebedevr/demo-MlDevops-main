@@ -15,7 +15,7 @@ jobs:
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VM_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ env.VM_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 34.171.9.157 >> ~/.ssh/known_hosts
 
