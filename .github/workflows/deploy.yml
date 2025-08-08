@@ -81,7 +81,33 @@ jobs:
           # The metadata action outputs multiple tags; we want the :latest tag as pull target
           echo "image_latest=ghcr.io/${GITHUB_REPOSITORY}:latest" >> $GITHUB_OUTPUT
 
+      - name: Validate required secrets
+        id: validate
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          missing=""
+          [ -z "$VM_HOST" ] && missing="$missing VM_HOST"
+          [ -z "$VM_USER" ] && missing="$missing VM_USER"
+          [ -z "$VM_SSH_KEY" ] && missing="$missing VM_SSH_KEY"
+          if [ -z "$missing" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "All required secrets are present. Proceeding with deployment."
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "Missing required secrets:$missing"
+          fi
+
+      - name: Skip deployment (secrets missing)
+        if: steps.validate.outputs.ok != 'true'
+        run: |
+          echo "Skipping deployment because one or more required secrets are missing."
+          echo "Please configure repository secrets: VM_HOST, VM_USER, VM_SSH_KEY."
+
       - name: SSH into VM and deploy
+        if: steps.validate.outputs.ok == 'true'
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
