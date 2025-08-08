@@ -84,9 +84,9 @@ jobs:
       - name: Validate required secrets
         id: validate
         env:
-          VM_HOST: ${{ secrets.VM_HOST }}
-          VM_USER: ${{ secrets.VM_USER }}
-          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_HOST: 34.46.106.163
+          VM_USER: lebedevrs9
+          VM_SSH_KEY: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCy9RLRTf71SRzLWRosgaXZnWt2/gUsfK8bvJoV05fZV47f3AZrSG1EBTenNQ5N2eocHc02vLbySwohc1o6QRS2NSfL9KiqrWwJuRKA8+dHjYYUXT6LYferpfFQQWhQ25jv9tjhPA3uWo7tUN0eVRg3fkVCQhq3Gm1cUy7RwP8nSqk3fi+rOBQoQ9XDmYJwoVP0xHvOCYaImvvF5fyrW3HRk0zHt6W85dQGUA9hrbbDXcq3Y1rUoHENPPyZZN3vS3mgvJmzuAcT19PSz7/tkb1JWGHyij4N21vtOlhz2iTR5S9TyswP0MT8LhmEOc4y9bsOwr3WtE99vpCbD9E+L/9b google-ssh
         run: |
           missing=""
           [ -z "$VM_HOST" ] && missing="$missing VM_HOST"
