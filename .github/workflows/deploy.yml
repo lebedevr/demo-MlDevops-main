@@ -82,12 +82,11 @@ jobs:
           echo "image_latest=ghcr.io/${GITHUB_REPOSITORY}:latest" >> $GITHUB_OUTPUT
 
       - name: SSH into VM and deploy
-        if: steps.validate.outputs.ok == 'true'
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: 34.46.106.163
-          username: lebedevrs9
-          key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCy9RLRTf71SRzLWRosgaXZnWt2/gUsfK8bvJoV05fZV47f3AZrSG1EBTenNQ5N2eocHc02vLbySwohc1o6QRS2NSfL9KiqrWwJuRKA8+dHjYYUXT6LYferpfFQQWhQ25jv9tjhPA3uWo7tUN0eVRg3fkVCQhq3Gm1cUy7RwP8nSqk3fi+rOBQoQ9XDmYJwoVP0xHvOCYaImvvF5fyrW3HRk0zHt6W85dQGUA9hrbbDXcq3Y1rUoHENPPyZZN3vS3mgvJmzuAcT19PSz7/tkb1JWGHyij4N21vtOlhz2iTR5S9TyswP0MT8LhmEOc4y9bsOwr3WtE99vpCbD9E+L/9b google-ssh
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
           script_stop: true
           script: |
             set -e
