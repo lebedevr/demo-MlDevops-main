@@ -1,0 +1,24 @@
+name: Build and Deploy Flask Container to VM
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 34.171.9.157 >> ~/.ssh/known_hosts
+
+      - name: SSH into VM and run commands
+        run: |
+          ssh github-actions@34.171.9.157 "echo 'Hello from GitHub Actions on GCP VM'"
