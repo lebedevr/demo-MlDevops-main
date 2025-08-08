@@ -1,0 +1,121 @@
+name: Build and Deploy Flask Container to VM
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - "Dockerfile"
+      - "requirements.txt"
+      - "deployments/python/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {}
+
+# This workflow builds a Docker image for the Flask app, pushes it to GHCR,
+# then connects to your VM via SSH to pull and run the container.
+#
+# Prerequisites:
+# 1) VM has Docker installed and accessible by the SSH user.
+# 2) Open ports on VM/network as needed (example maps port 80->5000 in the container).
+# 3) Create the following GitHub Secrets in your repository:
+#    - VM_HOST:            Public IP or hostname of your VM
+#    - VM_USER:            SSH username for your VM
+#    - VM_SSH_KEY:         Private SSH key for the VM user (PEM contents)
+#    - GHCR_USERNAME:      Your GitHub username (or org) that owns the registry
+#    - GHCR_TOKEN:         A PAT with scope: write:packages, read:packages, delete:packages (or use a token your VM can use to pull)
+#      Note: You can avoid GHCR_USERNAME/GHCR_TOKEN if you make the image public and your VM can pull anonymously.
+#
+# Notes about image name:
+# - The image will be published to ghcr.io/<owner>/<repo>:<tag> by default.
+# - Container name on VM: flask-hello
+
+jobs:
+  build-and-push:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+      latest_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: Deploy to VM
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Determine latest tag
+        id: pick
+        run: |
+          # The metadata action outputs multiple tags; we want the :latest tag as pull target
+          echo "image_latest=ghcr.io/${GITHUB_REPOSITORY}:latest" >> $GITHUB_OUTPUT
+
+      - name: SSH into VM and deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "Logging into GHCR (if token provided)..."
+            OWNER="${{ github.repository_owner }}"
+            USERNAME="${{ secrets.GHCR_USERNAME }}"
+            if [ -z "$USERNAME" ]; then USERNAME="$OWNER"; fi
+            if [ -n "${{ secrets.GHCR_TOKEN }}" ]; then
+              echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "$USERNAME" --password-stdin || true
+            else
+              echo "GHCR_TOKEN not provided, attempting anonymous pull (requires public image)"
+            fi
+
+            IMAGE="${{ steps.pick.outputs.image_latest }}"
+            CONTAINER_NAME="flask-hello"
+
+            echo "Pulling image $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "Stopping and removing existing container if exists"
+            docker ps -q --filter name="^/${CONTAINER_NAME}$" | xargs -r docker stop
+            docker ps -aq --filter name="^/${CONTAINER_NAME}$" | xargs -r docker rm
+
+            echo "Running container $CONTAINER_NAME"
+            # Maps host port 80 to container port 5000
+            docker run -d \
+              --name "$CONTAINER_NAME" \
+              --restart unless-stopped \
+              -p 80:5000 \
+              "$IMAGE"
+
+            echo "Deployment completed."
